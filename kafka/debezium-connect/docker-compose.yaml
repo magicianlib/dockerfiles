@@ -44,7 +44,7 @@ services:
       - ./data/kafka:/var/lib/kafka/data
 
   connect:
-    image: debezium/connect:2.7.0.Final  # Debezium 官方提供的集成镜像
+    image: debezium/connect:2.7.3.Final  # Debezium 官方提供的集成镜像
     container_name: debezium-connect
     ports:
       - "8083:8083"  # Kafka Connect 的 REST API 管理端口
