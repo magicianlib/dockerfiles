@@ -3,6 +3,12 @@ services:
         image: postgres:17.6
         container_name: postgres_17_6
         restart: always
+        # 启动参数设置 wal_level 及相关复制配置
+        command: >
+          postgres
+          -c wal_level=logical
+          -c max_wal_senders=1
+          -c max_replication_slots=1
         environment:
             TZ: Asia/Shanghai
             # POSTGRES_DB: db # 额外创建一个自定义数据库(默认 postgres 数据库依然存在)
