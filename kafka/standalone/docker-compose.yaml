@@ -6,6 +6,9 @@ services:
       # 暴露给宿主机/外部客户端连接的端口
       - "9092:9092"
     environment:
+      # 0. 集群 ID（官方镜像读取无前缀的 CLUSTER_ID；可自行用 kafka-storage.sh random-uuid 生成替换）
+      CLUSTER_ID: 'L7a3Pp2RTvKxQ9wYjm1BcN'
+
       # 1. 节点角色：同时作为 Broker (数据存储) 和 Controller (控制平面)
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
@@ -18,7 +21,7 @@ services:
       # 如果部署在远程服务器，请将 localhost 改为服务器实际 IP
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:19092,EXTERNAL://localhost:9092'
 
-      # 4. KRaft 控制器配置（修好了这里的 localhost -> kafka）
+      # 4. KRaft 控制器配置
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
@@ -28,6 +31,13 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+    healthcheck:
+      # 探测本节点 PLAINTEXT 监听端口，确认 Broker 已对外可用
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
     volumes:
       # 映射到 docker-compose.yml 同级目录下的 data 文件夹

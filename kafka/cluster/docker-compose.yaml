@@ -1,21 +1,29 @@
 x-kafka-common: &kafka-common
   image: apache/kafka:4.3.1
-  environment:
-    # 统一集群 ID（22 位 Base64 编码，集群内所有节点必须一致）
-    KAFKA_CLUSTER_ID: '4L62BiAIT_yJi4JiTG1uuw'
+  healthcheck:
+    # 探测本节点 PLAINTEXT 监听端口，确认 Broker 已对外可用
+    test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list >/dev/null 2>&1"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
 
-    # 角色与控制器投票节点（3 个节点均同时充当 Broker 和 Controller）
-    KAFKA_PROCESS_ROLES: 'broker,controller'
-    KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:9093,2@kafka2:9093,3@kafka3:9093'
-    KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-    KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+# 集群内所有节点共享的环境变量（纯变量集合，便于在 environment 块中安全合并）
+x-kafka-env: &kafka-env
+  # 统一集群 ID（官方镜像读取无前缀的 CLUSTER_ID；集群内所有节点必须一致）
+  CLUSTER_ID: '4L62BiAIT_yJi4JiTG1uuw'
 
-    # 集群默认副本策略（建议设为 3 或 2）
-    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
-    KAFKA_DEFAULT_REPLICATION_FACTOR: 3
-    KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  # 角色与控制器投票节点（3 个节点均同时充当 Broker 和 Controller）
+  KAFKA_PROCESS_ROLES: 'broker,controller'
+  KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:9093,2@kafka2:9093,3@kafka3:9093'
+  KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+  KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+
+  # 集群默认副本策略（建议设为 3 或 2）
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+  KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
 services:
   kafka1:
@@ -25,7 +33,7 @@ services:
     ports:
       - "9092:9092"
     environment:
-      <<: *kafka-common
+      <<: *kafka-env
       KAFKA_NODE_ID: 1
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
@@ -40,7 +48,7 @@ services:
     ports:
       - "9093:9092"
     environment:
-      <<: *kafka-common
+      <<: *kafka-env
       KAFKA_NODE_ID: 2
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
@@ -55,7 +63,7 @@ services:
     ports:
       - "9094:9092"
     environment:
-      <<: *kafka-common
+      <<: *kafka-env
       KAFKA_NODE_ID: 3
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
