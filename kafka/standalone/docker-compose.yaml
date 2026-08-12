@@ -1,0 +1,34 @@
+services:
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: kafka
+    ports:
+      # 暴露给宿主机/外部客户端连接的端口
+      - "9092:9092"
+    environment:
+      # 1. 节点角色：同时作为 Broker (数据存储) 和 Controller (控制平面)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+
+      # 2. 监听器配置
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
+
+      # 3. 对外宣告的连接地址
+      # 如果部署在远程服务器，请将 localhost 改为服务器实际 IP
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:19092,EXTERNAL://localhost:9092'
+
+      # 4. KRaft 控制器配置（修好了这里的 localhost -> kafka）
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+
+      # 5. 单节点集群容错/副本配置
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+    volumes:
+      # 映射到 docker-compose.yml 同级目录下的 data 文件夹
+      - ./data:/var/lib/kafka/data

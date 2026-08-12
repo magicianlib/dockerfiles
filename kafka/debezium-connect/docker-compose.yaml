@@ -1,0 +1,59 @@
+services:
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: kafka
+    ports:
+      # 暴露给宿主机/外部客户端连接的端口
+      - "9092:9092"
+    environment:
+      # 1. 节点角色：同时作为 Broker (数据存储) 和 Controller (控制平面)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+
+      # 2. 监听器配置
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
+
+      # 3. 对外宣告的连接地址
+      # 如果部署在远程服务器，请将 localhost 改为服务器实际 IP
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:19092,EXTERNAL://localhost:9092'
+
+      # 4. KRaft 控制器配置（修好了这里的 localhost -> kafka）
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+
+      # 5. 单节点集群容错/副本配置
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+    volumes:
+      # 建议独立存放在 ./data/kafka 下，避免和 connect 数据混合
+      - ./data/kafka:/var/lib/kafka/data
+
+  connect:
+    image: debezium/connect:2.7.0.Final  # Debezium 官方提供的集成镜像
+    container_name: debezium-connect
+    ports:
+      - "8083:8083"  # Kafka Connect 的 REST API 管理端口
+    environment:
+      # 连接到 Docker 内部网络的 Kafka
+      BOOTSTRAP_SERVERS: 'kafka:19092'
+      GROUP_ID: 'debezium-cluster'
+
+      # Kafka Connect 自动保存元数据和位移的内部 Topic
+      CONFIG_STORAGE_TOPIC: 'debezium_configs'
+      OFFSET_STORAGE_TOPIC: 'debezium_offsets'
+      STATUS_STORAGE_TOPIC: 'debezium_statuses'
+
+      # 消息数据转换格式（默认使用 JSON）
+      KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+      VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+    depends_on:
+      - kafka
+    volumes:
+      - ./data/debezium:/kafka/data
