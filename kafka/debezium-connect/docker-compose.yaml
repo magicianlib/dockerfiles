@@ -32,6 +32,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
+      # 禁用 topic 自动创建；业务 topic 需显式创建（Debezium 的内部与数据 topic 由 Connect 自行创建，不受影响）
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+
     healthcheck:
       # 探测本节点 PLAINTEXT 监听端口，确认 Broker 已对外可用
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list >/dev/null 2>&1"]

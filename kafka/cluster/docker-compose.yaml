@@ -25,6 +25,9 @@ x-kafka-env: &kafka-env
   KAFKA_DEFAULT_REPLICATION_FACTOR: 3
   KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
+  # 禁用 topic 自动创建；业务 topic 需显式创建
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+
 services:
   kafka1:
     <<: *kafka-common
