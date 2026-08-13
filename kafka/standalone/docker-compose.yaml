@@ -18,8 +18,8 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
 
       # 3. 对外宣告的连接地址
-      # 如果部署在远程服务器，请将 localhost 改为服务器实际 IP
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:19092,EXTERNAL://localhost:9092'
+      # 远程部署时设置环境变量 ADVERTISED_HOST 为服务器 IP，默认 localhost
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:19092,EXTERNAL://${ADVERTISED_HOST:-localhost}:9092'
 
       # 4. KRaft 控制器配置
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
