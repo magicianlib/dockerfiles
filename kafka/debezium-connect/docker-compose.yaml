@@ -43,9 +43,9 @@ services:
       # 建议独立存放在 ./data/kafka 下，避免和 connect 数据混合
       - ./data/kafka:/var/lib/kafka/data
 
-  connect:
+  debezium:
     image: debezium/connect:2.7.3.Final  # Debezium 官方提供的集成镜像
-    container_name: debezium-connect
+    container_name: debezium
     ports:
       - "8083:8083"  # Kafka Connect 的 REST API 管理端口
     environment:
