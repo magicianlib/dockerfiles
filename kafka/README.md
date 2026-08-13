@@ -18,9 +18,9 @@ Kafka 支持 KRaft（KIP-500）模式的最小版本取决于具体的使用场�
 
 Kafka 的网络由两个配置共同决定，容易混淆：
 
-| 配置 | 含义 | 该填什么 |
-|------|------|---------|
-| KAFKA_LISTENERS | broker 监听（绑定）的地址，即“在哪听” | 用 `0.0.0.0`，监听容器内所有网卡 |
+| 配置                       | 含义                                                | 该填什么                                         |
+| -------------------------- | --------------------------------------------------- | ------------------------------------------------ |
+| KAFKA_LISTENERS            | broker 监听（绑定）的地址，即“在哪听”               | 用 `0.0.0.0`，监听容器内所有网卡                 |
 | KAFKA_ADVERTISED_LISTENERS | broker 对外宣告给客户端的地址，即“告诉别人怎么连我” | 必须是客户端能真实访问到的地址，不能用 `0.0.0.0` |
 
 客户端先连上 broker（监听在 `0.0.0.0` 所以能连上），broker 把宣告地址回给客户端，客户端再改用这个地址继续通信。因此宣告地址必须可达；填 `0.0.0.0` 会让客户端无处可连，而且 Kafka 启动时会直接报错拒绝。
@@ -36,8 +36,8 @@ EXTERNAL 的对外地址由 `ADVERTISED_HOST` 控制，语法 `${ADVERTISED_HOST
 
 - 本机开发（默认）：直接 `docker compose up -d`，对外地址就是 localhost。
 - 远程服务器部署，二选一：
-  - 启动时临时指定：`ADVERTISED_HOST=你的服务器IP docker compose up -d`
-  - 或在对应目录放一个 `.env` 文件（docker compose 会自动读取），写入 `ADVERTISED_HOST=你的服务器IP`，之后直接 `docker compose up -d`
+    - 启动时临时指定：`ADVERTISED_HOST=你的服务器IP docker compose up -d`
+    - 或在对应目录放一个 `.env` 文件（docker compose 会自动读取），写入 `ADVERTISED_HOST=你的服务器IP`，之后直接 `docker compose up -d`
 
 PLAINTEXT 段不经过这个变量，始终用容器名，无需改动。
 
@@ -49,11 +49,11 @@ Debezium 通过读取源数据库的变更日志实现 CDC。下面以常用的 
 
 服务器级参数（在 `postgresql.conf` 或容器启动参数设置，改完需重启）：
 
-| 参数 | 要求 | 说明 |
-|------|------|------|
-| `wal_level` | `logical` | 开启逻辑解码 |
+| 参数                    | 要求              | 说明                                   |
+| ----------------------- | ----------------- | -------------------------------------- |
+| `wal_level`             | `logical`         | 开启逻辑解码                           |
 | `max_replication_slots` | ≥1（本仓库设 10） | 复制槽数量，按 Debezium 连接器数量调整 |
-| `max_wal_senders` | ≥1（本仓库设 10） | WAL 发送进程数，按连接数调整 |
+| `max_wal_senders`       | ≥1（本仓库设 10） | WAL 发送进程数，按连接数调整           |
 
 其他要点：
 
@@ -64,37 +64,49 @@ Debezium 通过读取源数据库的变更日志实现 CDC。下面以常用的 
 
 账号权限：需 `REPLICATION` 角色 + `LOGIN` + 对库 `CREATE` + 对捕获表 `SELECT`。示例：
 
-```sql
--- 创建用于 CDC 的账号，必须具备逻辑复制权限（REPLICATION 角色）
+```postgresql
+BEGIN;
+
+-- 创建用于 CDC 的登录账号，必须具备逻辑复制权限（REPLICATION 角色）
+-- debezium 是示例账号名，可根据需要自行调整
 CREATE ROLE debezium WITH REPLICATION LOGIN PASSWORD '你的密码';
--- 允许连接到目标数据库（把“你的库”替换为实际库名）
-GRANT CONNECT ON DATABASE 你的库 TO debezium;
+
+-- 允许账号连接到目标数据库
+GRANT CONNECT ON DATABASE 实际数据库名 TO debezium;
+
 -- 授予 schema 使用权限；public 仅为示例，请替换为表所在的 schema，
 -- 表分布在多个 schema 时需对每个 schema 分别授权
+-- NOTE: 必须进入目标数据库里执行，不能使用 库名.schema
 GRANT USAGE ON SCHEMA public TO debezium;
+
 -- 授予现有表的读取权限（schema 同样按实际替换）
+-- NOTE: 必须进入目标数据库里执行，不能使用 库名.schema
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO debezium;
+
 -- （可选）让后续新建表自动获得读取权限，避免每次手动授权
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT TO debezium;
+-- NOTE: 必须进入目标数据库里执行，不能使用 库名.schema
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO debezium;
+
+COMMIT;
 ```
 
 **wal_level 值说明**
 
-|wal_level 值|包含的信息|适用场景|
-|:-------------|:-------|:------|
-|minimal|仅包含崩溃恢复所需的最小日志（不记录部分批量操作的日志）|单机运行、极高并发批量写入场景（不支持任何主从复制）|
-|replica（默认）|包含崩溃恢复、WAL 归档以及物理流复制（Hot Standby）所需的信息|搭建主从高可用集群、只读副本、物理灾备|
-|logical|包含 replica 的所有信息，外加逻辑解码信息（表结构元数据、行级变更记录等）|逻辑复制（Pub/Sub）、跨大版本平滑升级、CDC 实时数据入仓|
+| wal_level 值    | 包含的信息                                                                | 适用场景                                                |
+| :-------------- | :------------------------------------------------------------------------ | :------------------------------------------------------ |
+| minimal         | 仅包含崩溃恢复所需的最小日志（不记录部分批量操作的日志）                  | 单机运行、极高并发批量写入场景（不支持任何主从复制）    |
+| replica（默认） | 包含崩溃恢复、WAL 归档以及物理流复制（Hot Standby）所需的信息             | 搭建主从高可用集群、只读副本、物理灾备                  |
+| logical         | 包含 replica 的所有信息，外加逻辑解码信息（表结构元数据、行级变更记录等） | 逻辑复制（Pub/Sub）、跨大版本平滑升级、CDC 实时数据入仓 |
 
 ### MySQL
 
-| 参数 | 要求 | 说明 |
-|------|------|------|
-| `log_bin` | 开启 | 启用 binlog |
-| `binlog_format` | `ROW` | 必须，STATEMENT/MIXED 不支持 |
-| `binlog_row_image` | `FULL` | 保留完整前后镜像 |
-| `server_id` | 唯一正整数 | 标识实例 |
-| `gtid_mode` | `ON`（推荐） | 便于断点续传 |
+| 参数               | 要求         | 说明                         |
+| ------------------ | ------------ | ---------------------------- |
+| `log_bin`          | 开启         | 启用 binlog                  |
+| `binlog_format`    | `ROW`        | 必须，STATEMENT/MIXED 不支持 |
+| `binlog_row_image` | `FULL`       | 保留完整前后镜像             |
+| `server_id`        | 唯一正整数   | 标识实例                     |
+| `gtid_mode`        | `ON`（推荐） | 便于断点续传                 |
 
 账号权限：`REPLICATION SLAVE` + `REPLICATION CLIENT` + 对库 `SELECT`。示例：
 
