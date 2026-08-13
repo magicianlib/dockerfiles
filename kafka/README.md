@@ -114,3 +114,4 @@ GRANT SELECT, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'debezium'@'%';
 - [Debezium: CDC](https://debezium.io/documentation/)：Debezium 官方文档。
 - [Debezium: PostgreSQL 连接器](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)：源库配置与权限要求。
 - [Debezium: MySQL 连接器](https://debezium.io/documentation/reference/stable/connectors/mysql.html)：binlog 与权限要求。
+- [Kafka Downloads Page](https://kafka.apache.org/community/downloads/)：kafka 下载页面。
