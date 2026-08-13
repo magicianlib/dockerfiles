@@ -64,7 +64,7 @@ Debezium 通过读取源数据库的变更日志实现 CDC。下面以常用的 
 
 账号权限：需 `REPLICATION` 角色 + `LOGIN` + 对库 `CREATE` + 对捕获表 `SELECT`。示例：
 
-```postgresql
+```sql
 BEGIN;
 
 -- 创建用于 CDC 的登录账号，必须具备逻辑复制权限（REPLICATION 角色）
