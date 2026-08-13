@@ -1,7 +1,7 @@
 services:
     postgres:
         image: postgres:17.6
-        container_name: postgres_17_6
+        container_name: postgres
         restart: always
         # 开启逻辑复制（供 Debezium 等 CDC 使用）；slots/senders 数量按连接器数量调整
         command: >
