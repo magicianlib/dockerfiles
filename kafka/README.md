@@ -32,14 +32,25 @@ Kafka 的网络由两个配置共同决定，容易混淆：
 
 ### ADVERTISED_HOST 变量用法
 
-EXTERNAL 的对外地址由 `ADVERTISED_HOST` 控制，语法 `${ADVERTISED_HOST:-localhost}` 表示“未设置时回退到 localhost”：
+EXTERNAL 的对外地址由 `ADVERTISED_HOST` 控制，语法 `${ADVERTISED_HOST:-localhost}` 表示“未设置时回退到 localhost”。各目录自带 `.env` 文件（docker compose 自动读取），按场景启用其中一个取值：
 
-- 本机开发（默认）：直接 `docker compose up -d`，对外地址就是 localhost。
-- 远程服务器部署，二选一：
-    - 启动时临时指定：`ADVERTISED_HOST=你的服务器IP docker compose up -d`
-    - 或在对应目录放一个 `.env` 文件（docker compose 会自动读取），写入 `ADVERTISED_HOST=你的服务器IP`，之后直接 `docker compose up -d`
+| 取值                    | 适用场景                                                                 |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `localhost`（默认）     | 本机开发，客户端都跑在宿主机上                                           |
+| `host.docker.internal` | 容器内客户端要接入宿主机上的 Kafka，如 kafka-ui 容器（Mac/Docker Desktop 环境必用，见下文） |
+| 宿主机实际 IP           | 远程部署，局域网内其他机器的客户端接入                                   |
+
+改完需重启对应目录的 compose（`docker compose up -d` 会重建 Kafka 容器，数据在 `./data` 不丢）。也可临时用命令行变量覆盖：`ADVERTISED_HOST=取值 docker compose up -d`（命令行优先级高于 `.env`）。
 
 PLAINTEXT 段不经过这个变量，始终用容器名，无需改动。
+
+### 为什么容器连宿主机 Kafka 要用 host.docker.internal
+
+用容器内的客户端（如本仓库的 kafka-ui）接入宿主机上的 Kafka 时，界面上填的接入地址必须同时满足两点：容器网络里可达，且与 `ADVERTISED_HOST` 一致（bootstrap 连上后客户端会改连 broker 宣告回来的地址，两侧不一致仍会失败）。因此 kafka-ui 接入宿主机 Kafka 的正确组合是：`.env` 设 `ADVERTISED_HOST=host.docker.internal`，界面里也填 `host.docker.internal:9092`，然后重启该目录的 compose。
+
+在 Mac 上填宿主机局域网 IP（如 172.21.17.9）通常不通，原因是架构差异：Docker Desktop for Mac 的容器跑在一层隐藏的 Linux 虚拟机里，容器流量要经虚拟机和 vpnkit 虚拟网络栈才能到 macOS。`host.docker.internal` 是 Docker Desktop 维护的特殊域名，在容器内解析到虚拟机网关（192.168.65.254），连接由 Docker Desktop 直接转交给宿主机进程，是内置专用通道，不依赖宿主机路由和防火墙。而宿主机 IP 挂在物理网卡上，容器发出的包要穿过整个宿主机网络栈再“发夹弯”绕回本机地址，沿途的 macOS 防火墙、VPN/零信任客户端的网络过滤（172.21.x.x 这类网段常由其分配）任何一环拦截都会导致连接建立失败，表现为 `Connection to node -1 could not be established`。
+
+Linux 上没有这层虚拟机隔离，容器与宿主机共享内核网络栈，宿主机 IP 一般直接可达，此时 `host.docker.internal`（由 kafka-ui compose 里的 `extra_hosts` 映射到宿主机网关）和宿主机 IP 两种写法都可用。
 
 ## CDC 对源数据库的要求
 
@@ -179,8 +190,32 @@ docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19
 
 注意端口：在容器内执行用 `localhost:19092`（内部监听器），在宿主机执行改用 `localhost:9092`（外部监听器），两者区别见上文监听器配置说明。
 
+## Kafbat UI 管理界面
+
+`kafka/kafka-ui` 目录提供基于 [Kafbat UI](https://github.com/kafbat/kafka-ui) 的 Kafka 管理界面。Kafbat UI 是原 Provectus kafka-ui 停止维护后的社区延续版本，配置方式与原版兼容。该 compose 不包含 Kafka 本身，只启动管理界面容器，接入外部已存在的集群。
+
+镜像说明：ghcr.io/kafbat/kafka-ui 仓库没有按版本号打 tag（全部历史里只有最早期的 v1.0.0，最新发布只打 latest 和提交 SHA），因此 compose 里只能引用 `latest`，无法像其他镜像一样固定版本。
+
+### 常用环境变量
+
+| 变量                      | 默认值  | 说明                                                                                                  |
+| ------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `DYNAMIC_CONFIG_ENABLED`  | `false` | 开启后可在界面上动态添加/修改集群（Configuration Wizard），无需在启动时指定接入地址                     |
+| `SWAGGER_UI_ENABLED`      | `false` | 开启自身 REST API 的交互式文档（Swagger UI），访问路径 `/swagger-ui`，用于浏览/调试接口或做自动化       |
+| `KAFKA_CLUSTERS_0_NAME`   | 无      | 静态配置的集群名称（展示在界面左上角的集群切换列表中）；本仓库开启了动态配置，未使用                    |
+| `KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS` | 无 | 静态配置的集群接入地址；同理未使用，多个集群递增序号 `KAFKA_CLUSTERS_1_*`、`KAFKA_CLUSTERS_2_*` 即可 |
+
+### 动态配置的持久化与重启行为
+
+- 界面上添加的集群配置写入容器内 `/etc/kafkaui/dynamic_config.yaml`，上传的证书等文件也在该目录下。容器重建后若未挂载此目录，动态配置会全部丢失，只剩启动时的静态配置。compose 已将宿主机 `./data` 挂载到该目录，重建不丢。
+- 每次在界面上提交配置，应用会整体重启一次，期间界面短暂不可用，属正常现象。
+- 界面里填的接入地址必须是 kafka-ui 容器可达的地址：连宿主机上的 Kafka 用 `host.docker.internal:9092`（容器里的 localhost 指容器自己），同时 Kafka 侧的 `ADVERTISED_HOST` 也要设成同一个值再重启，详见上文「为什么容器连宿主机 Kafka 要用 host.docker.internal」；连远程 Kafka 直接填其 `host:port`。
+
 ## 参考来源
 
+- [Kafbat UI 官方仓库](https://github.com/kafbat/kafka-ui)：Provectus kafka-ui 的社区延续版本，环境变量与配置说明。
+- [Kafbat UI: Configuration Wizard](https://ui.docs.kafbat.io/configuration/configuration-wizard)：运行时动态添加/修改集群的开启方式、动态配置文件的持久化位置与重启行为。
+- [Kafbat UI: Configuration File](https://ui.docs.kafbat.io/configuration/configuration-file)：YAML 与环境变量两种配置形式的对照与完整配置项参考。
 - [Apache Kafka Quickstart](https://kafka.apache.org/quickstart/)：KRaft 模式与官方镜像的基础用法。
 - [Running Apache Kafka KRaft on Docker（Instaclustr）](https://www.instaclustr.com/education/apache-spark/running-apache-kafka-kraft-on-docker-tutorial-and-best-practices/)：多节点 KRaft 集群的集群标识生成与部署最佳实践。
 - [Docker Forums：apache/kafka 默认 CLUSTER_ID 行为](https://forums.docker.com/t/kafka-fails-to-start/147141)：未显式设置集群标识时镜像使用的默认值与日志特征。

@@ -1,0 +1,23 @@
+services:
+  kafka-ui:
+    # Kafbat UI 是 Provectus kafka-ui 停止维护后的社区延续版本
+    # 镜像仓库未按版本号打 tag（仅早期版本有 v1.0.0），最新发布只打 latest，因此这里只能引用 latest
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      # 管理界面的 Web 访问端口
+      - "8080:8080"
+    environment:
+      # 开启后可在界面上动态添加/修改集群（Configuration Wizard），无需重启指定接入地址
+      # 未预置任何集群配置，启动后在界面里添加；地址须为本容器可达的 Kafka 接入地址
+      DYNAMIC_CONFIG_ENABLED: 'true'
+
+      # 开启自身 REST API 的交互式文档（Swagger UI），用于浏览/调试接口或做自动化
+      SWAGGER_UI_ENABLED: 'true'
+    volumes:
+      # 界面上添加的集群配置与上传的证书文件落在容器内该目录；
+      # 不挂载的话容器重建后动态配置会丢失，只剩启动时的静态配置
+      - ./data:/etc/kafkaui
+    extra_hosts:
+      # Linux 下 host.docker.internal 默认不可解析，加这条映射到宿主机网关即可跨平台使用
+      - 'host.docker.internal:host-gateway'
