@@ -1,0 +1,4 @@
+cluster/data/
+debezium-connect/data/
+kafka-ui/data/
+standalone/data/

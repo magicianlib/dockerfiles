@@ -32,6 +32,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
+      # 6. 数据目录指向挂载路径；镜像默认写在容器内 /tmp，不显式指定的话重建容器会丢全部数据
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+
       # 禁用 topic 自动创建；业务 topic 需显式创建（Debezium 的内部与数据 topic 由 Connect 自行创建，不受影响）
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
 

@@ -52,6 +52,18 @@ PLAINTEXT 段不经过这个变量，始终用容器名，无需改动。
 
 Linux 上没有这层虚拟机隔离，容器与宿主机共享内核网络栈，宿主机 IP 一般直接可达，此时 `host.docker.internal`（由 kafka-ui compose 里的 `extra_hosts` 映射到宿主机网关）和宿主机 IP 两种写法都可用。
 
+注意 `host.docker.internal` 只保证在**容器内**可解析；宿主机上默认解析不了（实测 Docker Desktop 不一定写入宿主机 hosts），因此宣告地址设为它时，宿主机命令行客户端需在 hosts 加一条 `127.0.0.1 host.docker.internal` 才能同时使用；否则宿主机客户端只能在 `localhost` 模式下用。
+
+## Kafka 数据持久化（KAFKA_LOG_DIRS）
+
+apache/kafka 镜像默认把数据日志写在容器内部的 `/tmp/kafka-logs`，往 `/var/lib/kafka/data` 挂载卷**不会自动生效**，必须显式设置：
+
+```yaml
+KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+```
+
+三个含 Kafka 的 compose 均已配置。不配置的后果：只要容器被重建（改环境变量、`--force-recreate` 等），全部 topic 数据与 connector 注册都会丢失。表象有迷惑性：Kafka Connect 启动时会自动重建自己的内部 topic（配置、位移、状态），看起来集群“还在”，但业务数据 topic 和已注册的连接器都没了，需要重新注册连接器（连接器会对表重新做一次全量快照）。
+
 ## CDC 对源数据库的要求
 
 Debezium 通过读取源数据库的变更日志实现 CDC。下面以常用的 PostgreSQL、MySQL 为例说明源库需要满足的条件。
