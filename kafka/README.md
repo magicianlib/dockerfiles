@@ -117,6 +117,68 @@ GRANT SELECT, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'debezium'@'%';
 
 通用提示：Kafka Connect 容器需能网络访问源库；账号建议最小权限，避免直接用超级用户。
 
+## Debezium Connect：关闭消息内嵌的 schema
+
+Debezium 默认用 Kafka Connect 的 JSON 转换器输出消息，每条消息都带一个 `schema` 字段，重复描述表结构（字段名、类型、是否可空等）。这部分元数据与业务无关，却占了消息体绝大部分，单条可能从几百字节膨胀到 3KB 以上，高吞吐下对网络和存储都是浪费。
+
+关闭方法是设置 `value.converter.schemas.enable=false`（key 侧同理）。但本仓库使用的 `debezium/connect` 镜像有个陷阱：启动脚本只对 **`CONNECT_` 开头**的环境变量做转换（去前缀、转小写、下划线变点号）再写入 Connect 配置，且只固定给 `KEY_CONVERTER`/`VALUE_CONVERTER` 加前缀重新导出，不处理 `*_SCHEMAS_ENABLE`。因此写成 `VALUE_CONVERTER_SCHEMAS_ENABLE`（无前缀）会被静默忽略，配置仍是默认的 `true`，每条消息照样带 schema。
+
+正确写法是带 `CONNECT_` 前缀（见 `kafka/debezium-connect/docker-compose.yaml`）：
+
+```yaml
+environment:
+  CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+  CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+```
+
+改完需重建 debezium 容器（`docker compose up -d debezium`）才生效，因为转换器配置在 worker 启动时加载。生效后新消息只保留 `payload`（`before`/`after`/`source`/`op` 等），不再带结构描述块，体积可降到原来的数分之一。
+
+注意事项：
+
+- 主题里已落盘的旧消息仍是旧格式，只有重建后的新消息是精简格式。
+- 精简后消息中 `source` 内的 `"schema": "public"` 是 schema 名（业务数据，与被去掉的结构描述块无关），数据库名是 `"db": "db"`。
+- 想让 `DECIMAL` 字段以普通数字而非 `{scale, value}` 出现，可在 connector 配置加 `decimal.handling.mode: double`（或 `string`）。
+- 更极致的体积优化可用 Avro + Schema Registry：schema 只在注册表存一份，消息只带 id 与紧凑二进制。该镜像自带 Apicurio 转换器，开启 `ENABLE_APICURIO_CONVERTERS: 'true'` 并更换 converter 即可。
+
+## Debezium Connect：数据 topic 的自动创建
+
+本仓库的 Kafka 关闭了 broker 端自动建 topic（`KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`，见 `kafka/cluster/docker-compose.yaml`）。此时 Debezium 相关 topic 的创建分两种情况：
+
+- **Connect 内部 topic**（配置、位移、状态，即 `debezium_configs`/`debezium_offsets`/`debezium_statuses`）：由 Kafka Connect 通过管理接口显式创建，不受 broker 自动建 topic 开关影响，无需干预。
+- **Debezium 数据 topic**（形如 `<前缀>.<schema>.<表>`，例如 `pgdb.public.products`）：默认**不会**自动创建。在 broker 关闭自动建、connector 又没配 topic 创建参数时，Debezium 往不存在的 topic 发数据会失败。
+
+### 典型现象
+
+connector 状态显示 `RUNNING`，但数据 topic 一直不出现，Debezium 日志反复报：
+
+```
+Error while fetching metadata ... {pgdb.public.products=UNKNOWN_TOPIC_OR_PARTITION}
+```
+
+由于变更事件发不出去只能缓冲在内存，Postgres 侧的复制槽会持续积压（`pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)` 不断增大），表现像连接器连着却收不到数据。
+
+### 解决办法
+
+二选一。
+
+办法一（推荐，一劳永逸）：在 connector 配置里启用 Debezium 的 topic 自动创建，新建表时会自动建好对应 topic：
+
+```json
+"topic.creation.default.replication.factor": "1",
+"topic.creation.default.partitions": "1"
+```
+
+副本数需与集群规模匹配，本仓库为单节点集群故填 `1`。
+
+办法二（手动）：按需逐个创建数据 topic：
+
+```bash
+docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 \
+  --create --topic pgdb.public.products --partitions 1 --replication-factor 1
+```
+
+注意端口：在容器内执行用 `localhost:19092`（内部监听器），在宿主机执行改用 `localhost:9092`（外部监听器），两者区别见上文监听器配置说明。
+
 ## 参考来源
 
 - [Apache Kafka Quickstart](https://kafka.apache.org/quickstart/)：KRaft 模式与官方镜像的基础用法。

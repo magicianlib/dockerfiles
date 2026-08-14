@@ -64,8 +64,11 @@ services:
       # 消息数据转换格式（默认使用 JSON）
       KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
       VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
-      KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
-      VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+      # 关闭每条消息内嵌的结构描述（即表结构元数据），显著减小消息体积
+      # 本镜像只会对 CONNECT_ 前缀的变量做去前缀、转小写、下划线变点号后写入配置，
+      # 因此必须带前缀；写成不带前缀的形式不会被识别，最终仍是默认开启状态
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
     depends_on:
       kafka:
         condition: service_healthy  # 等 Kafka 健康检查通过后再启动，避免连接失败退出
