@@ -8,8 +8,13 @@ services:
       # 管理界面的 Web 访问端口
       - "8080:8080"
     environment:
-      # 开启后可在界面上动态添加/修改集群（Configuration Wizard），无需重启指定接入地址
-      # 未预置任何集群配置，启动后在界面里添加；地址须为本容器可达的 Kafka 接入地址
+      # 预置接入本网络内的 Kafka（见文件末尾网络配置）；地址在 Docker 网络内固定可达，
+      # 无需改动。接入远程集群时再在界面上添加，或改这里的地址后重建容器
+      KAFKA_CLUSTERS_0_NAME: 'local'
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:19092'
+
+      # 开启后可在界面上动态添加/修改集群（Configuration Wizard）；
+      # 动态添加的配置存放在下方挂载目录，与这里的静态预置并存
       DYNAMIC_CONFIG_ENABLED: 'true'
 
       # 开启自身 REST API 的交互式文档（Swagger UI），用于浏览/调试接口或做自动化
@@ -21,3 +26,13 @@ services:
     extra_hosts:
       # Linux 下 host.docker.internal 默认不可解析，加这条映射到宿主机网关即可跨平台使用
       - 'host.docker.internal:host-gateway'
+
+# 接入宿主机上的 Kafka 推荐方式：加入 Kafka 所在 compose 的网络，界面里填内部监听器地址
+# （如 kafka:19092）。该地址在 Docker 网络内始终可达，不依赖 ADVERTISED_HOST，
+# 宿主机命令行客户端可继续用 localhost:9092，两侧互不影响。
+# 网络名通过 KAFKA_NETWORK 变量指定（见 .env），对应目录名_default：
+#   standalone -> standalone_default；cluster -> cluster_default；debezium-connect -> debezium-connect_default
+networks:
+  default:
+    name: ${KAFKA_NETWORK:-debezium-connect_default}
+    external: true

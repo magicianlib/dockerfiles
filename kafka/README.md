@@ -221,7 +221,7 @@ docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19
 
 - 界面上添加的集群配置写入容器内 `/etc/kafkaui/dynamic_config.yaml`，上传的证书等文件也在该目录下。容器重建后若未挂载此目录，动态配置会全部丢失，只剩启动时的静态配置。compose 已将宿主机 `./data` 挂载到该目录，重建不丢。
 - 每次在界面上提交配置，应用会整体重启一次，期间界面短暂不可用，属正常现象。
-- 界面里填的接入地址必须是 kafka-ui 容器可达的地址：连宿主机上的 Kafka 用 `host.docker.internal:9092`（容器里的 localhost 指容器自己），同时 Kafka 侧的 `ADVERTISED_HOST` 也要设成同一个值再重启，详见上文「为什么容器连宿主机 Kafka 要用 host.docker.internal」；连远程 Kafka 直接填其 `host:port`。
+- 接入宿主机上的 Kafka：推荐方式是让 kafka-ui 加入 Kafka 所在 compose 的网络（compose 里已通过 `KAFKA_NETWORK` 变量接入，默认 `debezium-connect_default`，在 `kafka/kafka-ui/.env` 里按实际运行的目录切换），界面里接入地址填内部监听器 `kafka:19092`（cluster 目录则填 `kafka1:19092`）。该地址在 Docker 网络内始终可达，不依赖 `ADVERTISED_HOST`，宿主机命令行客户端可继续用 `localhost:9092`，两侧互不影响。备选方式见上文「为什么容器连宿主机 Kafka 要用 host.docker.internal」（把 `ADVERTISED_HOST` 切到 `host.docker.internal`，两侧地址保持一致）。连远程 Kafka 直接填其 `host:port`，无需共享网络。
 
 ## 参考来源
 
