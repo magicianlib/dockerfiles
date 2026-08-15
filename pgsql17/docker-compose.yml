@@ -5,7 +5,7 @@ services:
         # restart: always
         environment:
             TZ: Asia/Shanghai
-            POSTGRES_DB: db # 额外创建一个自定义数据库(默认 postgres 数据库依然存在)
+            POSTGRES_DB: shop # 额外创建一个自定义数据库(默认 postgres 数据库依然存在)
             POSTGRES_USER: admin
             POSTGRES_PASSWORD: admin123
             POSTGRES_INITDB_ARGS: "--encoding=UTF8 --data-checksums"
