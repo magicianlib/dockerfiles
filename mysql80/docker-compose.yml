@@ -2,12 +2,21 @@ services:
     mysql:
         image: mysql:8.0.43
         container_name: mysql
-        restart: always
+        # restart: always
+        # Windows bind mount 的文件权限恒为 777，mysqld 会以 world-writable 为由忽略配置文件，
+        # 因此先挂到中转目录，启动时复制进容器并修正权限后再交给官方 entrypoint
+        entrypoint:
+            - bash
+            - -c
+            - |
+                cp /mysql-conf/my.cnf /etc/mysql/conf.d/my.cnf
+                chmod 644 /etc/mysql/conf.d/my.cnf
+                exec docker-entrypoint.sh mysqld
         environment:
             TZ: Asia/Shanghai
-            MYSQL_ROOT_PASSWORD: admin
+            MYSQL_ROOT_PASSWORD: admin123
         ports:
             - "3306:3306"
         volumes:
             - ./data:/var/lib/mysql
-            - ./conf:/etc/mysql/conf.d
+            - ./conf:/mysql-conf

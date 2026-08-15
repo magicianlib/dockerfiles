@@ -1,7 +1,7 @@
 services:
   dragonfly:
     image: "docker.dragonflydb.io/dragonflydb/dragonfly"
-    restart: always
+    # restart: always
     ulimits:
       memlock: -1
     ports:
