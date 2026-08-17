@@ -2,6 +2,8 @@ services:
     postgres:
         image: postgres:17.6
         container_name: postgres
+        # 用挂载的配置文件替换默认主配置（路径与下方挂载一致）
+        command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
         # restart: always
         environment:
             TZ: Asia/Shanghai
@@ -14,6 +16,6 @@ services:
         volumes:
             - ./data:/var/lib/postgresql/data
             # 逻辑复制等配置（供 Debezium 等 CDC 使用）。
-            # 官方镜像没有 conf.d 自动加载机制，直接覆盖数据目录里的主配置文件，
-            # 未指定的参数均按编译期默认值生效
-            - ./conf/postgresql.conf:/var/lib/postgresql/data/postgresql.conf
+            # 官方镜像没有 conf.d 自动加载机制，挂到独立路径再由启动参数指定为主配置；
+            # 不能直接挂进数据目录：首次初始化时 initdb 要求目录为空，目录非空会启动失败
+            - ./conf/postgresql.conf:/etc/postgresql/postgresql.conf:ro
