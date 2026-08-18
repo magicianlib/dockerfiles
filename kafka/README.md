@@ -34,11 +34,11 @@ Kafka 的网络由两个配置共同决定，容易混淆：
 
 EXTERNAL 的对外地址由 `ADVERTISED_HOST` 控制，语法 `${ADVERTISED_HOST:-localhost}` 表示“未设置时回退到 localhost”。各目录自带 `.env` 文件（docker compose 自动读取），按场景启用其中一个取值：
 
-| 取值                    | 适用场景                                                                 |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `localhost`（默认）     | 本机开发，客户端都跑在宿主机上                                           |
+| 取值                   | 适用场景                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `localhost`（默认）    | 本机开发，客户端都跑在宿主机上                                                              |
 | `host.docker.internal` | 容器内客户端要接入宿主机上的 Kafka，如 kafka-ui 容器（Mac/Docker Desktop 环境必用，见下文） |
-| 宿主机实际 IP           | 远程部署，局域网内其他机器的客户端接入                                   |
+| 宿主机实际 IP          | 远程部署，局域网内其他机器的客户端接入                                                      |
 
 改完需重启对应目录的 compose（`docker compose up -d` 会重建 Kafka 容器，数据在 `./data` 不丢）。也可临时用命令行变量覆盖：`ADVERTISED_HOST=取值 docker compose up -d`（命令行优先级高于 `.env`）。
 
@@ -210,12 +210,12 @@ docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19
 
 ### 常用环境变量
 
-| 变量                      | 默认值  | 说明                                                                                                  |
-| ------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `DYNAMIC_CONFIG_ENABLED`  | `false` | 开启后可在界面上动态添加/修改集群（Configuration Wizard），无需在启动时指定接入地址                     |
-| `SWAGGER_UI_ENABLED`      | `false` | 开启自身 REST API 的交互式文档（Swagger UI），访问路径 `/swagger-ui`，用于浏览/调试接口或做自动化       |
-| `KAFKA_CLUSTERS_0_NAME`   | 无      | 静态配置的集群名称（展示在界面左上角的集群切换列表中）；本仓库开启了动态配置，未使用                    |
-| `KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS` | 无 | 静态配置的集群接入地址；同理未使用，多个集群递增序号 `KAFKA_CLUSTERS_1_*`、`KAFKA_CLUSTERS_2_*` 即可 |
+| 变量                                | 默认值  | 说明                                                                                                 |
+| ----------------------------------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| `DYNAMIC_CONFIG_ENABLED`            | `false` | 开启后可在界面上动态添加/修改集群（Configuration Wizard），无需在启动时指定接入地址                  |
+| `SWAGGER_UI_ENABLED`                | `false` | 开启自身 REST API 的交互式文档（Swagger UI），访问路径 `/swagger-ui`，用于浏览/调试接口或做自动化    |
+| `KAFKA_CLUSTERS_0_NAME`             | 无      | 静态配置的集群名称（展示在界面左上角的集群切换列表中）；本仓库开启了动态配置，未使用                 |
+| `KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS` | 无      | 静态配置的集群接入地址；同理未使用，多个集群递增序号 `KAFKA_CLUSTERS_1_*`、`KAFKA_CLUSTERS_2_*` 即可 |
 
 ### 动态配置的持久化与重启行为
 
