@@ -1,8 +1,15 @@
-name: Push to GitLab
+name: Sync to GitLab
 
 on:
   push:
     branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-to-gitlab
+  cancel-in-progress: false
 
 jobs:
   push-to-gitlab:
@@ -11,11 +18,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # 完整的 git 历史
+          fetch-depth: 0 # 完整 git 历史
 
       - name: Push to GitLab Remote
         env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_PAT }} # GitLab Token
+          GITLAB_TOKEN: ${{ secrets.GITLAB_PAT }} # 配置 GitLab Token
         run: |
           # 配置远程 GitLab 地址，并带上 Token 认证
           git remote add gitlab https://oauth2:${{ env.GITLAB_TOKEN }}@gitlab.com/${{ github.REPOSITORY }}.git
