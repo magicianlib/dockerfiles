@@ -18,7 +18,7 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_PAT }} # GitLab Token
         run: |
           # 配置远程 GitLab 地址，并带上 Token 认证
-          git remote add gitlab https://oauth2:${{ env.GITLAB_TOKEN }}@gitlab.com/magicianlib/id-generator.git
+          git remote add gitlab https://oauth2:${{ env.GITLAB_TOKEN }}@gitlab.com/${{ github.REPOSITORY }}.git
 
           # 将 main 分支 push 到 gitlab
           git push gitlab main
