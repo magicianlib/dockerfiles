@@ -15,7 +15,11 @@ services:
         ports:
             - "5432:5432"
         volumes:
-            - ./data:/var/lib/postgresql/data
+            # postgres 18+ 镜像改为 pg_ctlcluster 风格的目录布局：必须把宿主机目录
+            # 挂到 /var/lib/postgresql（而非 /var/lib/postgresql/data），实际数据在
+            # ./data/18/docker 子目录；entrypoint 检测到旧路径有挂载会直接报错退出
+            # https://github.com/docker-library/postgres/pull/1259
+            - ./data:/var/lib/postgresql
             # 逻辑复制等配置（供 Debezium 等 CDC 使用）。
             # 官方镜像没有 conf.d 自动加载机制，挂到独立路径再由启动参数指定为主配置；
             # 不能直接挂进数据目录：首次初始化时 initdb 要求目录为空，目录非空会启动失败
