@@ -13,7 +13,7 @@ services:
             POSTGRES_PASSWORD: admin123
             POSTGRES_INITDB_ARGS: "--encoding=UTF8 --data-checksums"
         ports:
-            - "5432:5432"
+            - "15432:5432"
         volumes:
             # postgres 18+ 镜像改为 pg_ctlcluster 风格的目录布局：必须把宿主机目录
             # 挂到 /var/lib/postgresql（而非 /var/lib/postgresql/data），实际数据在

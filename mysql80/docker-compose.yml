@@ -16,7 +16,7 @@ services:
             TZ: Asia/Shanghai
             MYSQL_ROOT_PASSWORD: admin123
         ports:
-            - "3306:3306"
+            - "13306:3306"
         volumes:
             - ./data:/var/lib/mysql
             - ./conf:/mysql-conf
