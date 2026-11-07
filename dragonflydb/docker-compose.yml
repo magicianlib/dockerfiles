@@ -5,7 +5,7 @@ services:
     ulimits:
       memlock: -1
     ports:
-      - "6379:6379"
+      - "16379:6379"
     volumes:
       - ./data:/data
     command: dragonfly --dbnum=1
